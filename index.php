@@ -1,14 +1,14 @@
 <?php
 
-print_r($argv);
+// print_r($argv);
 
 $command = $argv[1] ?? null;
 
-$commands = ['init','add','commit','log','hash_object'];
+$commands = ['init','add','commit','log','hash_object','cat_file'];
 
 if(!$command || !in_array($command,$commands)){
-  echo "Usage ./index.php <$command>\n";
-  echo "Available commands: init, add, commit, log\n";
+  echo "Error: Usage ./index.php <$command>\n";
+  echo "Available commands: init, add, commit, log, hash_object, cat_file\n";
   exit(1);
 }
 
@@ -30,7 +30,7 @@ function command_init(){
 function command_hash_object($args){
 
   $filePath = $args[0];
-  $writeEnable = $args[1];
+  $writeEnable = $args[1] ?? false;
 
   if(!file_exists($filePath)){
     echo "Error: File not found.\n";
@@ -57,4 +57,36 @@ function command_hash_object($args){
     file_put_contents($filePath,$compressed);
   }
     echo $hash . PHP_EOL;
+}
+
+function command_cat_file($args){
+  $hash = (string)$args[0];
+
+  $dir = '.mygit/objects/' . substr($hash,0,2);
+  $file = $dir . '/' . substr($hash,2);
+
+  if(!file_exists($file)){
+    echo "Error: Object not found.\n";
+    return;
+  }
+
+  $compressed = file_get_contents($file);
+
+  $data = gzuncompress($compressed);
+
+  if($data === false){
+    echo "Error: Failed to decompress the object.\n";
+    return;
+  }
+
+  $parts = explode("\0",$data,2);
+  // print_r($parts);
+  if(count($parts) < 2){
+    echo "Error: Invalid MyGit object format.\n";
+    return;
+  }
+
+  $fileContent = $parts[1];
+
+  echo $fileContent;
 }
