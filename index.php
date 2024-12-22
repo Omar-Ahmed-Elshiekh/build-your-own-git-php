@@ -4,11 +4,11 @@
 
 $command = $argv[1] ?? null;
 
-$commands = ['init','add','commit','log','hash_object','cat_file','write_tree'];
+$commands = ['init','add','commit','log','hash_object','cat_file','write_tree','ls_tree'];
 
 if(!$command || !in_array($command,$commands)){
   echo "Error: Usage ./index.php <$command>\n";
-  echo "Available commands: init, add, commit, log, hash_object, cat_file, write_tree\n";
+  echo "Available commands: init, add, commit, log, hash_object, cat_file, write_tree, ls_tree\n";
   exit(1);
 }
 
@@ -94,20 +94,20 @@ function command_cat_file($args){
 
 function command_write_tree($args,$base = ''){
   $entries = [];
-  $dir = $args[0] ?? '.';
+  $dir = '.';
   $items = scandir($dir);
 
   foreach($items as $item){
 
     if($item === '.' || $item === '..' || $item === '.mygit') continue;
 
-    $path = $base ? $item : "$base/$item";
+    $path = $base ? "$base/$item" : $item;
 
     if(is_file($path)){
       $hash = command_hash_object([$path,1]);
       $entries[] = ['100644','blob',$hash,$item];
     }else if(is_dir($path)){
-      $hash = command_write_tree('.',$path); //recursivly do subdirs
+      $hash = command_write_tree([],$path); //recursivly do subdirs
       $entries[] = ['040000','tree',$hash,$item];
     }
 
@@ -137,3 +137,60 @@ function command_write_tree($args,$base = ''){
   return $hash;
 }
 
+function command_ls_tree($args){
+  $hash = $args[0] ?? null;
+  $flag = false;
+
+  if(isset($args[0]) && $args[0] === "--name-only"){
+    if (count($args) < 2) {
+      echo "Error: Hash required.\n";
+      return;
+  }
+    $flag = true;
+    $hash = $args[1];
+  }
+
+  $dir = '.mygit/objects/' . substr($hash,0,2);
+  $file = $dir . '/' . substr($hash, 2);
+
+  if (!file_exists($file)) {
+    echo "Error: Tree object not found.\n";
+    return;
+}
+
+  $compressed = file_get_contents($file);
+  $data = gzuncompress($compressed);
+
+  $parts = explode("\0", $data, 2);
+  if (count($parts) < 2) {
+      echo "Error: Invalid object format.\n";
+      return;
+  }
+
+  [$header,$content] = $parts;
+  if(!str_starts_with($header,'tree ')){
+    echo "Error: Not a tree object.\n";
+    return;
+  }
+
+  $lines = explode("\n",trim($content));
+
+  foreach($lines as $line){
+    if(empty($line)) continue;
+
+    $parts = explode(" ",trim($line),4);
+    if(count($parts) !== 4){
+      continue;
+    }
+
+    [$code ,$type,$hash,$name] = $parts;
+
+    if($flag){
+      echo $name . "\n";
+    }else{
+      echo "$code $type $hash $name\n";
+    }
+
+  }
+
+}
