@@ -4,11 +4,11 @@
 
 $command = $argv[1] ?? null;
 
-$commands = ['init','add','commit','log','hash_object','cat_file'];
+$commands = ['init','add','commit','log','hash_object','cat_file','write_tree'];
 
 if(!$command || !in_array($command,$commands)){
   echo "Error: Usage ./index.php <$command>\n";
-  echo "Available commands: init, add, commit, log, hash_object, cat_file\n";
+  echo "Available commands: init, add, commit, log, hash_object, cat_file, write_tree\n";
   exit(1);
 }
 
@@ -57,6 +57,7 @@ function command_hash_object($args){
     file_put_contents($filePath,$compressed);
   }
     echo $hash . PHP_EOL;
+    return $hash;
 }
 
 function command_cat_file($args){
@@ -90,3 +91,49 @@ function command_cat_file($args){
 
   echo $fileContent;
 }
+
+function command_write_tree($args,$base = ''){
+  $entries = [];
+  $dir = $args[0] ?? '.';
+  $items = scandir($dir);
+
+  foreach($items as $item){
+
+    if($item === '.' || $item === '..' || $item === '.mygit') continue;
+
+    $path = $base ? $item : "$base/$item";
+
+    if(is_file($path)){
+      $hash = command_hash_object([$path,1]);
+      $entries[] = ['100644','blob',$hash,$item];
+    }else if(is_dir($path)){
+      $hash = command_write_tree('.',$path); //recursivly do subdirs
+      $entries[] = ['040000','tree',$hash,$item];
+    }
+
+  }
+
+  $tree_content = '';
+  foreach($entries as $entry){
+    [$code,$type,$hash,$name] = $entry;
+    $tree_content .= "$code $type $hash $name\n";
+  }
+
+  $header = "tree " . strlen($tree_content) . "\0";
+  $fulldata = $header . $tree_content;
+
+  $hash = sha1($fulldata);
+  $compressed = gzcompress($fulldata);
+
+  $dir = '.mygit/objects/' . substr($hash,0,2);
+  if(!is_dir($dir)){
+    mkdir($dir,0777,true);
+  }
+
+  $path = $dir . '/' . substr($hash,2);
+  file_put_contents($path,$compressed);
+
+  echo $hash . PHP_EOL;
+  return $hash;
+}
+
