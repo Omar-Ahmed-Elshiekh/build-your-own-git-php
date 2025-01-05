@@ -3,8 +3,7 @@
 // print_r($argv);
 
 $command = $argv[1] ?? null;
-
-$commands = ['init','add','commit','log','hash_object','cat_file','write_tree','ls_tree'];
+$commands = ['init','add','commit','log','hash_object','cat_file','write_tree','ls_tree','ls_files'];
 
 if(!$command || !in_array($command,$commands)){
   echo "Error: Usage ./index.php <$command>\n";
@@ -24,7 +23,7 @@ function command_init(){
   mkdir('.mygit/objects');
   mkdir('.mygit/refs');
   file_put_contents('.mygit/HEAD','ref: refs/heads/main\n');
-  echo "Initialized Git-like repository.\n";
+  echo "Initialized MyGit repository.\n";
 }
 
 function command_hash_object($args){
@@ -99,7 +98,7 @@ function command_write_tree($args,$base = ''){
 
   foreach($items as $item){
 
-    if($item === '.' || $item === '..' || $item === '.mygit') continue;
+    if($item === '.' || $item === '..' || $item === '.mygit' || /*delete it at the end of the project*/ $item === '.git') continue;
 
     $path = $base ? "$base/$item" : $item;
 
@@ -193,4 +192,83 @@ function command_ls_tree($args){
 
   }
 
+}
+
+//TODO: implemet add command
+
+function command_add($args){
+  if(!file_exists(".mygit/index")){
+    file_put_contents(".mygit/index",'');
+  }
+
+  if (empty($args)) {
+    echo "Error: No paths specified for adding\n";
+    return;
+  }
+
+  $dir = '.';
+  $index_entries = [];
+  $index_contents = file_get_contents('.mygit/index');
+  if($index_contents){
+    $index_entries = array_filter(explode("\n",$index_contents));
+  }
+
+  $index = [];
+  
+  foreach($index_entries as $entry){
+    $parts = explode(" ",$entry);
+    if(count($parts) >= 4){
+      $path = $parts[3];
+      $index[$path] = $entry;
+    }
+  }
+
+  foreach($args as $path){
+    if(!file_exists($path)){
+      echo "Error: '$path' does not exist\n";
+      continue;
+    }
+
+    if(is_file($path)){
+      add_file($path,$index);
+    }else if(is_dir($path)){
+      add_dir($path,$index);
+    }
+  }
+
+  ksort($index);
+  $new_content = implode("\n",$index);
+  if($new_content){
+    $new_content .= "\n";
+  }
+
+  file_put_contents(".mygit/index",$new_content);
+
+}
+
+function add_file($path,&$index){
+  if(str_starts_with($path,'./mygit')) return;
+  $hash = command_hash_object([$path,1]);
+  $mode = '100644';
+  $type = 'blob';
+  $entry = "$mode $type $hash $path";
+  $index[$path] = $entry;
+}
+
+function add_dir($dir,&$index){
+  $items = scandir($dir);
+
+  foreach($items as $item){
+    if($item === '.' || $item === '..' || $item === '.mygit' || /*delete it at the end of the project*/ $item === '.git') {
+      continue;
+  }
+
+  $path = $dir === '.' ? $item : "$dir/$item";
+
+  if(is_file($path)){
+    add_file($path,$index);
+  }else if(is_dir($path)){
+    add_dir($path,$index);
+  }
+  }
 }
