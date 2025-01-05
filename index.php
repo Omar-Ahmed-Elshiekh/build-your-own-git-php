@@ -113,8 +113,8 @@ function command_write_tree($args,$base = ''){
 
   $tree_content = '';
   foreach($entries as $entry){
-    [$code,$type,$hash,$name] = $entry;
-    $tree_content .= "$code $type $hash $name\n";
+    [$mode,$type,$hash,$name] = $entry;
+    $tree_content .= "$mode $type $hash $name\n";
   }
 
   $header = "tree " . strlen($tree_content) . "\0";
@@ -180,12 +180,12 @@ function command_ls_tree($args){
       continue;
     }
 
-    [$code ,$type,$hash,$name] = $parts;
+    [$mode ,$type,$hash,$name] = $parts;
 
     if($flag){
       echo $name . "\n";
     }else{
-      echo "$code $type $hash $name\n";
+      echo "$mode $type $hash $name\n";
     }
 
   }
@@ -266,5 +266,34 @@ function add_dir($dir,&$index){
   }else if(is_dir($path)){
     add_dir($path,$index);
   }
+  }
+}
+
+function command_ls_files($args){
+  $flag = $args[0] ?? null;
+  $index_path = './.mygit/index';
+
+  if(!file_exists($index_path)){
+    echo "Error: Index file not found. Have you added any files?\n";
+    return;
+  }
+
+  $index_content = file_get_contents($index_path);
+
+  if(empty($index_content)){
+    return;
+  }
+
+  $index_entries = explode("\n",$index_content);
+  foreach($index_entries as $entry){
+    $path = explode(" ",trim($entry),4)[3];
+    if($flag === "--stage" || $flag === "-s"){
+      echo $entry . "\n";
+    }else if($flag === null){
+      echo $path . "\n";
+    }else{
+      echo "Error: Undefined flag " . $flag . "\n";
+      return;
+    }
   }
 }
