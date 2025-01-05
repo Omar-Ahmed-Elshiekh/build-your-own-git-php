@@ -80,7 +80,6 @@ function command_cat_file($args){
   }
 
   $parts = explode("\0",$data,2);
-  // print_r($parts);
   if(count($parts) < 2){
     echo "Error: Invalid MyGit object format.\n";
     return;
@@ -93,20 +92,20 @@ function command_cat_file($args){
 
 function command_write_tree($args,$base = ''){
   $entries = [];
-  $dir = '.';
-  $items = scandir($dir);
+  $dir = $args[0] ?? '.';
+  $scan_path = $base ? $base : $dir;
+  $items = scandir($scan_path);
 
   foreach($items as $item){
 
     if($item === '.' || $item === '..' || $item === '.mygit' || /*delete it at the end of the project*/ $item === '.git') continue;
 
-    $path = $base ? "$base/$item" : $item;
-
-    if(is_file($path)){
-      $hash = command_hash_object([$path,1]);
+    $full_path = $scan_path . '/' . $item;
+    if(is_file($full_path)){
+      $hash = command_hash_object([$full_path,1]);
       $entries[] = ['100644','blob',$hash,$item];
-    }else if(is_dir($path)){
-      $hash = command_write_tree([],$path); //recursivly do subdirs
+    }else if(is_dir($full_path)){
+      $hash = command_write_tree([$full_path],$full_path); //recursivly do subdirs
       $entries[] = ['040000','tree',$hash,$item];
     }
 
@@ -159,7 +158,6 @@ function command_ls_tree($args){
 
   $compressed = file_get_contents($file);
   $data = gzuncompress($compressed);
-
   $parts = explode("\0", $data, 2);
   if (count($parts) < 2) {
       echo "Error: Invalid object format.\n";
@@ -193,8 +191,6 @@ function command_ls_tree($args){
   }
 
 }
-
-//TODO: implemet add command
 
 function command_add($args){
   if(!file_exists(".mygit/index")){
