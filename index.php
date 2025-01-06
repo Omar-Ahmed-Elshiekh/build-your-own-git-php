@@ -367,9 +367,11 @@ function command_commit($args)
   $parent_hash = null;
   if (file_exists(".mygit/HEAD")) {
     $head_content = trim(file_get_contents(".mygit/HEAD"));
-    $ref = substr($head_content, 5);
-    if (file_exists(".mygit/" . $ref)) {
-      $parent_hash = trim(file_get_contents(".mygit/" . $ref));
+    if(str_starts_with($head_content,"ref: ")){
+      $ref = substr($head_content, 5);
+      if (file_exists(".mygit/" . $ref)) {
+        $parent_hash = trim(file_get_contents(".mygit/" . $ref));
+      }
     }
   }
 
