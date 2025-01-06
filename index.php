@@ -367,8 +367,9 @@ function command_commit($args)
   $parent_hash = null;
   if (file_exists(".mygit/HEAD")) {
     $head_content = trim(file_get_contents(".mygit/HEAD"));
-    if (file_exists(".mygit/" . $head_content)) {
-      $parent_hash = trim(file_get_contents(".mygit/" . $head_content));
+    $ref = substr($head_content, 5);
+    if (file_exists(".mygit/" . $ref)) {
+      $parent_hash = trim(file_get_contents(".mygit/" . $ref));
     }
   }
 
@@ -404,4 +405,85 @@ function command_commit($args)
   file_put_contents('.mygit/refs/heads/main', $hash);
 
   echo "Created commit " . $hash . "\n";
+}
+
+function command_log()
+{
+  if (!file_exists(".mygit/HEAD")) {
+    echo "Error: No commits yet\n";
+    return;
+  }
+
+  $head_content = trim(file_get_contents(".mygit/HEAD"));
+  $curr_hash = null;
+
+  if (str_starts_with($head_content, "ref: ")) {
+    $ref = substr($head_content, 5);
+    if (!file_exists(".mygit/" . $ref)) {
+      echo "Error: No commits yet\n";
+      return;
+    }
+    $curr_hash = trim(file_get_contents(".mygit/" . $ref));
+  } else {
+    $curr_hash = $head_content;
+  }
+
+  while ($curr_hash) {
+    $dir = ".mygit/objects/" . substr($curr_hash, 0, 2);
+    $path = $dir . '/' . substr($curr_hash, 2);
+
+    if (!file_exists($path)) {
+      echo "Error: Commit object not found\n";
+      break;
+    }
+
+    $compressed = file_get_contents($path);
+    $data = gzuncompress($compressed);
+    $parts = explode("\0", $data, 2);
+
+    if (count($parts) < 2) {
+      echo "Error: Invalid commit object format\n";
+      break;
+    }
+
+    $content = $parts[1];
+    $lines = explode("\n", $content);
+
+    $commit_data = [];
+    $message = "";
+    $reading_message = false;
+
+    foreach ($lines as $line) {
+      if (empty(trim($line)))
+        continue;
+
+      if (str_starts_with($line, "message ")) {
+        $message = substr($line, 8);
+        $reading_message = true;
+      } else if ($reading_message) {
+        $message .= "\n" . $line;
+      } else {
+        $parts = explode(" ", $line, 2);
+        if (count($parts) == 2) {
+          $commit_data[$parts[0]] = $parts[1];
+        }
+      }
+
+    }
+
+    echo "\033[33mcommit " . $curr_hash . "\033[0m\n";
+
+    if (isset($commit_data["author"])) {
+      $author_data = explode(" ", $commit_data["author"]);
+      $timestamp = end($author_data);
+      $author_name = implode(" ", array_slice($author_data, 0, -1));
+      $date = date("Y-m-d H:i:s", (int) $timestamp) . "\n";
+    }
+    echo "\033[36mAuthor: " . $author_name . "\033[0m\n";
+    echo "Date: " . $date;
+    echo "\n      " . $message . "\n\n";
+
+    $curr_hash = $commit_data["parent"] ?? null;
+  }
+
 }
