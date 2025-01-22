@@ -95,11 +95,17 @@ function command_write_tree()
 {
   if (!file_exists('.mygit/index')) {
     echo "Error: No index file found\n";
-    return null;
+    return;
   }
 
   $entries = [];
   $index_content = file_get_contents('.mygit/index');
+
+  if($index_content === ''){
+    echo "Error: Index is empty\n";
+    return;
+  }
+
   $lines = explode("\n", trim($index_content));
   foreach ($lines as $line) {
     if (empty(trim($line)))
