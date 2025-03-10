@@ -22,6 +22,7 @@ function command_init()
   mkdir('.mygit/objects');
   mkdir('.mygit/refs');
   file_put_contents('.mygit/HEAD', "ref: refs/heads/main\n");
+  file_put_contents('.mygit/index', '');
   echo "Initialized MyGit repository.\n";
 }
 
@@ -209,7 +210,6 @@ function command_add($args)
     return;
   }
 
-  $dir = '.';
   $index_entries = [];
   $index_contents = file_get_contents('.mygit/index');
   if ($index_contents) {
@@ -311,7 +311,7 @@ function command_ls_files($args)
 
 function command_commit($args)
 {
-  if (!isset($args[0]) || $args[0] !== '-m' || !isset($args[1])) {
+  if (!isset($args[0]) || $args[0] !== '-m' || !isset($args[1]) || trim($args[1]) === "") {
     echo "Error: Please provide a commit message using -m flag\n";
     return;
   }
